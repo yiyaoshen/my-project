@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TO MY BABY</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            /* 更有沉浸感的深空辐射渐变背景 */
+            background: radial-gradient(circle at center, #1a0005 0%, #000000 100%); 
+        }
+        canvas { display: block; }
+        
+        /* 绝美发光文字的样式设计 */
+        #text-container {
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%);
+            text-align: center; 
+            color: #fff; 
+            pointer-events: none; /* 让鼠标穿透文字，点击到后面的粒子 */
+            user-select: none;
+            /* 霓虹发光阴影 */
+            text-shadow: 0 0 10px #ff0055, 0 0 20px #ff0055, 0 0 40px #ff0055, 0 0 80px #ff0055;
+            z-index: 10;
+        }
+        .subtitle { 
+            font-size: 20px; 
+            letter-spacing: 6px; 
+            margin-bottom: 8px; 
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            color: #ffb3c6;
+        }
+        .msg { 
+            font-size: 46px; 
+            font-weight: bold; 
+            font-family: 'Microsoft YaHei', sans-serif; 
+            white-space: nowrap; 
+        }
+    </style>
+</head>
+<body>
+    <div id="text-container">
+        <div class="subtitle">西西</div>
+        <div class="msg">❤ 七夕快乐 ❤</div>
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, baseScale;
+
+        // 窗口自适应，手机电脑都能完美显示
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            // 根据屏幕大小动态计算爱心的比例
+            baseScale = Math.min(width, height) / 45; 
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        const particles = [];
+        const PARTICLE_COUNT = 4000;
+
+        function heartMath(t) {
+            const x = 16 * Math.pow(Math.sin(t), 3);
+            const y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+            return {x, y};
+        }
+
+        class Particle {
+            constructor() {
+                const t = Math.random() * Math.PI * 2;
+                const {x, y} = heartMath(t);
+                const distance = Math.pow(Math.random(), 0.6); // 让粒子集中在中心和边缘
+                
+                this.baseX = x * distance;
+                this.baseY = y * distance;
+                
+                // 初始散落在全屏
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = 0;
+                this.vy = 0;
+                this.size = Math.random() * 2 + 1.5;
+                
+                // 随机粉红到深红的色相
+                this.hue = 330 + Math.random() * 30; 
+            }
+
+            update(scale, mouse, isExploding) {
+                let tx = width / 2 + this.baseX * baseScale * scale;
+                let ty = height / 2 + this.baseY * baseScale * scale;
+
+                // 鼠标悬浮/手指滑动的排斥效果
+                const dx = this.x - mouse.x;
+                const dy = this.y - mouse.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist < 150 && mouse.x !== -1000) {
+                    const force = (150 - dist) / 150;
+                    tx += (dx / dist) * force * 280;
+                    ty += (dy / dist) * force * 280;
+                }
+
+                // 点击屏幕触发大爆炸
+                if (isExploding) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 80 + 20;
+                    this.vx += Math.cos(angle) * speed;
+                    this.vy += Math.sin(angle) * speed;
+                }
+
+                // 引力弹簧模型
+                const ax = (tx - this.x) * 0.05;
+                const ay = (ty - this.y) * 0.05;
+
+                this.vx = (this.vx + ax) * 0.85; // 阻尼系数
+                this.vy = (this.vy + ay) * 0.85;
+
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+
+            draw(beat) {
+                const speed = Math.hypot(this.vx, this.vy);
+                // 速度越快，粒子越白越亮（高能光效）
+                let lightness = 50 + speed * 1.5;
+                if (lightness > 100) lightness = 100;
+                
+                ctx.fillStyle = `hsl(${this.hue}, 100%, ${lightness}%)`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size + beat * 2 + speed * 0.03, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // 初始化粒子群
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            particles.push(new Particle());
+        }
+
+        // 交互事件监听
+        const mouse = { x: -1000, y: -1000 };
+        let isExploding = false;
+
+        // 电脑端鼠标事件
+        window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+        window.addEventListener('mouseleave', () => { mouse.x = -1000; mouse.y = -1000; });
+        window.addEventListener('mousedown', () => isExploding = true);
+        
+        // 手机端触摸事件 (完美支持手指滑动和点击大爆炸)
+        window.addEventListener('touchstart', e => {
+            mouse.x = e.touches[0].clientX;
+            mouse.y = e.touches[0].clientY;
+            isExploding = true;
+        });
+        window.addEventListener('touchmove', e => {
+            mouse.x = e.touches[0].clientX;
+            mouse.y = e.touches[0].clientY;
+        });
+        window.addEventListener('touchend', () => {
+            mouse.x = -1000; mouse.y = -1000;
+        });
+
+        const startTime = Date.now();
+
+        function animate() {
+            // 绘制半透明黑色背景，制造极限的光影拖尾效果
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)'; 
+            ctx.fillRect(0, 0, width, height);
+
+            const t = (Date.now() - startTime) / 1000;
+            // 尖锐的心跳函数
+            const beat = Math.pow(Math.abs(Math.sin(t * 3.5)), 6);
+            const scale = 1 + beat * 0.15;
+
+            particles.forEach(p => {
+                p.update(scale, mouse, isExploding);
+                p.draw(beat);
+            });
+            
+            // 爆炸瞬间重置状态，只炸一次
+            isExploding = false; 
+
+            // 让中间的文字跟随心跳一起呼吸放大
+            const textContainer = document.getElementById('text-container');
+            const textScale = 1 + beat * 0.08;
+            textContainer.style.transform = `translate(-50%, -50%) scale(${textScale})`;
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
