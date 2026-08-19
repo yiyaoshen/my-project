@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TO MY BABY</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: radial-gradient(circle at center, #1a0005 0%, #000000 100%); 
+            font-family: 'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        }
+        canvas { display: block; }
+        
+        /* 核心发光文字样式 */
+        #text-container {
+            position: absolute; top: 50%; left: 50%; 
+            transform: translate(-50%, -50%);
+            text-align: center; color: #fff; 
+            pointer-events: none; user-select: none; z-index: 10;
+        }
+        .subtitle { font-size: 20px; letter-spacing: 6px; color: #ffb3c6; margin-bottom: 8px; }
+        .msg { 
+            font-size: 46px; font-weight: bold; white-space: nowrap; 
+            text-shadow: 0 0 10px #ff0055, 0 0 20px #ff0055, 0 0 40px #ff0055;
+        }
+
+        /* 隐藏的彩蛋文字样式 (初始透明，带有淡入动画) */
+        #special-message {
+            position: absolute; bottom: 15%; left: 50%;
+            transform: translateX(-50%);
+            text-align: center; color: #ffccd5;
+            font-size: 18px; line-height: 1.8;
+            opacity: 0; /* 初始透明 */
+            transition: opacity 1.5s ease-in-out; /* 淡入动画 */
+            pointer-events: none; z-index: 11;
+            text-shadow: 0 0 8px #ff4d94;
+            max-width: 80%;
+        }
+
+        /* 霓虹发光按钮样式 */
+        #reveal-btn {
+            position: absolute; bottom: 30px; left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 30px;
+            font-size: 18px; color: #fff;
+            background: rgba(255, 0, 85, 0.1); /* 半透明背景 */
+            border: 2px solid #ff0055; /* 红色边框 */
+            border-radius: 50px; /* 圆角按钮 */
+            cursor: pointer; z-index: 20;
+            outline: none;
+            transition: all 0.3s ease; /* 过渡动画 */
+            box-shadow: 0 0 15px rgba(255, 0, 85, 0.4); /* 初始光晕 */
+            letter-spacing: 2px;
+        }
+
+        /* 按钮悬停和点击时的增强特效 */
+        #reveal-btn:hover {
+            background: rgba(255, 0, 85, 0.3);
+            box-shadow: 0 0 30px rgba(255, 0, 85, 0.8);
+            transform: translateX(-50%) scale(1.05); /* 微微放大 */
+        }
+        #reveal-btn:active { transform: translateX(-50%) scale(0.95); /* 点击缩小反馈 */ }
+        
+        /* 按钮隐藏后的样式 */
+        #reveal-btn.hidden { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(20px); }
+    </style>
+</head>
+<body>
+    <!-- 主界面文字 -->
+    <div id="text-container">
+        <div class="subtitle">西西</div>
+        <div class="msg">❤ 七夕快乐 ❤</div>
+    </div>
+
+     <!-- 🌟 这里是点击后显示的浪漫彩蛋文字！你可以随便改 -->
+    <div id="special-message">
+        遇见你是我最大的幸运，<br>
+        感谢你出现在我的生命里。<br>
+        我想一直守护在你身边，永远爱你！<br>
+        💖爱你哟！💖
+    </div>
+
+    <!-- 🌟 发光按钮 -->
+    <button id="reveal-btn">点我有惊喜哦 ✨</button>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const btn = document.getElementById('reveal-btn');
+        const spMsg = document.getElementById('special-message');
+        let width, height, baseScale;
+
+        // 窗口自适应
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            baseScale = Math.min(width, height) / 45; 
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // 🌟 按钮点击事件：处理彩蛋
+        btn.addEventListener('click', () => {
+            btn.classList.add('hidden'); // 按钮淡出隐藏
+            spMsg.style.opacity = '1'; // 彩蛋文字淡入显示
+            spMsg.style.pointerEvents = 'auto'; // 允许选择文字
+        });
+
+        // 粒子引擎代码复刻
+        const particles = [];
+        const PARTICLE_COUNT = 4000;
+
+        function heartMath(t) {
+            const x = 16 * Math.pow(Math.sin(t), 3);
+            const y = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+            return {x, y};
+        }
+
+        class Particle {
+            constructor() {
+                const t = Math.random() * Math.PI * 2;
+                const {x, y} = heartMath(t);
+                const distance = Math.pow(Math.random(), 0.6); 
+                this.baseX = x * distance;
+                this.baseY = y * distance;
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = 0; this.vy = 0;
+                this.size = Math.random() * 2 + 1.5;
+                this.hue = 330 + Math.random() * 30; 
+            }
+
+            update(scale, mouse, isExploding) {
+                let tx = width / 2 + this.baseX * baseScale * scale;
+                let ty = height / 2 + this.baseY * baseScale * scale;
+
+                const dx = this.x - mouse.x;
+                const dy = this.y - mouse.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist < 150 && mouse.x !== -1000) {
+                    const force = (150 - dist) / 150;
+                    tx += (dx / dist) * force * 280;
+                    ty += (dy / dist) * force * 280;
+                }
+                if (isExploding) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 80 + 20;
+                    this.vx += Math.cos(angle) * speed;
+                    this.vy += Math.sin(angle) * speed;
+                }
+                const ax = (tx - this.x) * 0.05;
+                const ay = (ty - this.y) * 0.05;
+                this.vx = (this.vx + ax) * 0.85; 
+                this.vy = (this.vy + ay) * 0.85;
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+
+            draw(beat) {
+                const speed = Math.hypot(this.vx, this.vy);
+                let lightness = 50 + speed * 1.5;
+                if (lightness > 100) lightness = 100;
+                ctx.fillStyle = `hsl(${this.hue}, 100%, ${lightness}%)`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size + beat * 2 + speed * 0.03, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        for (let i = 0; i < PARTICLE_COUNT; i++) { particles.push(new Particle()); }
+
+        const mouse = { x: -1000, y: -1000 };
+        let isExploding = false;
+
+        window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+        window.addEventListener('mouseleave', () => { mouse.x = -1000; mouse.y = -1000; });
+        window.addEventListener('mousedown', (e) => { 
+            // 只有点击画布而不是按钮时才触发爆炸
+            if (e.target.tagName !== 'BUTTON') isExploding = true; 
+        });
+        
+        window.addEventListener('touchstart', e => {
+            // 防止触摸按钮时触发爆炸
+            if (e.target.tagName !== 'BUTTON') {
+                mouse.x = e.touches[0].clientX;
+                mouse.y = e.touches[0].clientY;
+                isExploding = true;
+            }
+        });
+        window.addEventListener('touchmove', e => {
+            if (e.target.tagName !== 'BUTTON') {
+                mouse.x = e.touches[0].clientX;
+                mouse.y = e.touches[0].clientY;
+            }
+        });
+        window.addEventListener('touchend', () => { mouse.x = -1000; mouse.y = -1000; });
+
+        const startTime = Date.now();
+
+        function animate() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)'; 
+            ctx.fillRect(0, 0, width, height);
+            const t = (Date.now() - startTime) / 1000;
+            const beat = Math.pow(Math.abs(Math.sin(t * 3.5)), 6);
+            const scale = 1 + beat * 0.15;
+            particles.forEach(p => {
+                p.update(scale, mouse, isExploding);
+                p.draw(beat);
+            });
+            isExploding = false; 
+            const textContainer = document.getElementById('text-container');
+            const textScale = 1 + beat * 0.08;
+            textContainer.style.transform = `translate(-50%, -50%) scale(${textScale})`;
+            requestAnimationFrame(animate);
+        }
+        animate();
+    </script>
+</body>
+</html>
